@@ -1,0 +1,79 @@
+name: Build AppImage
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-x86-64:
+    runs-on: ubuntu-24.04
+    container: ubuntu:22.04
+    steps:
+      - name: Check out source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Install build tools
+        run: |
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install -y \
+            ca-certificates curl python3 python3-pip unzip xz-utils file desktop-file-utils
+
+      - name: Install pinned Python dependencies
+        run: |
+          python3 -m pip install --no-cache-dir -r requirements.txt -r requirements-build.txt
+
+      - name: Download pinned AppImage tools
+        run: |
+          . packaging/versions.env
+          mkdir -p build/tools
+          curl --fail --location --retry 3 --output build/appimagetool "$APPIMAGETOOL_URL"
+          printf '%s  %s\n' "$APPIMAGETOOL_SHA256" build/appimagetool | sha256sum --check --status
+          chmod +x build/appimagetool
+          curl --fail --location --retry 3 --output build/runtime-x86_64 "$APPIMAGE_RUNTIME_URL"
+          printf '%s  %s\n' "$APPIMAGE_RUNTIME_SHA256" build/runtime-x86_64 | sha256sum --check --status
+
+      - name: Build AppImage
+        env:
+          DOWNLOAD_TOOLS: "1"
+          APPIMAGETOOL: ${{ github.workspace }}/build/appimagetool
+          APPIMAGE_RUNTIME: ${{ github.workspace }}/build/runtime-x86_64
+          APPIMAGE_EXTRACT_AND_RUN: "1"
+        run: packaging/build-appimage.sh
+
+      - name: Validate desktop metadata
+        run: desktop-file-validate build/AppDir/yt-clip-watch.desktop
+
+      - name: Upload AppImage artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: yt-clip-watch-x86_64
+          path: |
+            yt-clip-watch-x86_64.AppImage
+  publish-release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build-x86-64
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - name: Download tested artifact
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
+        with:
+          name: yt-clip-watch-x86_64
+
+      - name: Publish tagged release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          sha256sum yt-clip-watch-x86_64.AppImage > yt-clip-watch-x86_64.AppImage.sha256
+          gh release create "$GITHUB_REF_NAME" \
+            yt-clip-watch-x86_64.AppImage \
+            yt-clip-watch-x86_64.AppImage.sha256 \
+            --verify-tag \
+            --generate-notes
+

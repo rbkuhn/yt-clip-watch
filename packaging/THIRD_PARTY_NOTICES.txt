@@ -1,0 +1,49 @@
+yt-clip-watch third-party notices
+===================================
+
+This AppImage contains third-party software. Release builds must ship this
+file together with the corresponding license texts or source offers required
+by each license.
+
+Application
+-----------
+The application source is licensed under the MIT License. The complete text
+is included in LICENSE.
+
+PySide6 / Qt for Python
+-----------------------
+PySide6 and Qt are available under LGPLv3/GPLv3 or a commercial license.
+Qt for Python third-party notices are documented at:
+https://doc.qt.io/qtforpython-6/licenses.html
+Qt LGPL distribution obligations and relinking guidance:
+https://www.qt.io/development/open-source-lgpl-obligations
+The AppImage must keep the Qt shared libraries replaceable and include the
+corresponding source or a valid written offer, together with the LGPL text.
+
+yt-dlp and yt-dlp-ejs
+---------------------
+yt-dlp license and dependency notices:
+https://github.com/yt-dlp/yt-dlp#licensing
+yt-dlp-ejs source and license:
+https://github.com/yt-dlp/ejs
+The matching yt-dlp-ejs package is installed through yt-dlp[default].
+
+Deno
+----
+Deno source and license:
+https://github.com/denoland/deno
+https://github.com/denoland/deno/blob/main/LICENSE
+
+FFmpeg
+-------
+This build uses the GPL FFmpeg build published for yt-dlp. FFmpeg licensing
+and the obligations of the selected build are documented at:
+https://ffmpeg.org/legal.html
+https://github.com/yt-dlp/FFmpeg-Builds
+
+Build inputs
+------------
+The exact versions, URLs, and SHA-256 values used by the AppImage build are
+recorded in packaging/versions.env. Do not update a dependency without
+updating this file, reviewing its license, and regenerating this notice when
+needed.

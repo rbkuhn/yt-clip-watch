@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=yt-clip-watch
+Comment=Download copied YouTube URLs
+Exec=yt-clip-watch
+Icon=yt-clip-watch
+Type=Application
+Categories=AudioVideo;
+Terminal=false
