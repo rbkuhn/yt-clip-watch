@@ -175,6 +175,7 @@ class DownloadWorker(QObject):
         logger = _YtDlpLogger(emit_message)
         options = build_download_options(
             job.settings,
+            url=job.url,
             logger=logger,
             progress_hook=progress_hook,
             postprocessor_hook=postprocessor_hook,

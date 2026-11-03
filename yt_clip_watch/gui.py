@@ -93,6 +93,8 @@ class MainWindow(QMainWindow):
         self.archive_check = QCheckBox("Avoid downloading URLs already completed")
         self.archive_check.setChecked(True)
         form.addRow("Download archive", self.archive_check)
+        self.restrict_filenames_check = QCheckBox("Remove special characters from filenames")
+        form.addRow("Filename options", self.restrict_filenames_check)
         layout.addLayout(form)
 
         warning = QLabel(
@@ -105,7 +107,7 @@ class MainWindow(QMainWindow):
 
         manual_row = QHBoxLayout()
         self.url_edit = QLineEdit()
-        self.url_edit.setPlaceholderText("Paste a YouTube URL here when clipboard watching is unavailable")
+        self.url_edit.setPlaceholderText("Paste a YouTube or Instagram URL here when clipboard watching is unavailable")
         self.url_edit.returnPressed.connect(self._add_manual_url)
         add_button = QPushButton("Add URL")
         add_button.clicked.connect(self._add_manual_url)
@@ -151,12 +153,18 @@ class MainWindow(QMainWindow):
         index = self.browser_combo.findData(browser)
         self.browser_combo.setCurrentIndex(index if index >= 0 else 0)
         self.archive_check.setChecked(self._settings_store.value("archive", True, type=bool))
+        self.restrict_filenames_check.setChecked(
+            self._settings_store.value("restrict_filenames", False, type=bool)
+        )
 
     def _save_settings(self) -> None:
         self._settings_store.setValue("output_dir", self.output_edit.text().strip())
         self._settings_store.setValue("resolution", self.resolution_combo.currentData())
         self._settings_store.setValue("browser", self.browser_combo.currentData())
         self._settings_store.setValue("archive", self.archive_check.isChecked())
+        self._settings_store.setValue(
+            "restrict_filenames", self.restrict_filenames_check.isChecked()
+        )
         self._settings_store.sync()
 
     def _choose_output_dir(self) -> None:
@@ -202,7 +210,7 @@ class MainWindow(QMainWindow):
     def _add_manual_url(self) -> None:
         urls = extract_urls(self.url_edit.text())
         if not urls:
-            QMessageBox.warning(self, "No YouTube URL", "Enter a valid YouTube URL.")
+            QMessageBox.warning(self, "No supported URL", "Enter a valid YouTube or Instagram URL.")
             return
         self._enqueue_urls(urls)
         self.url_edit.clear()
@@ -218,6 +226,7 @@ class MainWindow(QMainWindow):
             resolution=int(self.resolution_combo.currentData()),
             browser=self.browser_combo.currentData(),
             archive_path=archive_path,
+            restrict_filenames=self.restrict_filenames_check.isChecked(),
             runtime_paths=self._runtime_paths,
         )
 

@@ -14,6 +14,13 @@ YOUTUBE_URL_RE = re.compile(
     r"https?://(?:[\w-]+\.)?(?:youtube\.com|youtu\.be)/[^\s<>'\"()]+",
     re.IGNORECASE,
 )
+# Reel and post links, with or without a username segment. The query string (share
+# tracking such as ?igsh=...) is dropped so the same reel deduplicates.
+INSTAGRAM_URL_RE = re.compile(
+    r"https?://(?:www\.)?instagram\.com/(?:[\w.]+/)?(?:p|reels?)/[\w-]+",
+    re.IGNORECASE,
+)
+URL_PATTERNS = (YOUTUBE_URL_RE, INSTAGRAM_URL_RE)
 RESOLUTION_CHOICES = (360, 480, 720, 1080)
 DEFAULT_SORT_TEMPLATE = "res:{resolution},ext:mp4:m4a"
 
@@ -35,6 +42,7 @@ class DownloadSettings:
     sort_value: str | None = None
     browser: str | None = None
     archive_path: Path | None = None
+    restrict_filenames: bool = False
     runtime_paths: RuntimePaths = RuntimePaths()
 
     def __post_init__(self) -> None:
@@ -53,14 +61,30 @@ class DownloadSettings:
 
 
 def extract_urls(text: str) -> list[str]:
-    """Return unique YouTube URLs in first-seen order."""
+    """Return unique YouTube and Instagram reel/post URLs in first-seen order."""
 
+    matches = sorted(
+        (match.start(), match.group())
+        for pattern in URL_PATTERNS
+        for match in pattern.finditer(text)
+    )
     urls: list[str] = []
-    for match in YOUTUBE_URL_RE.findall(text):
+    for _, match in matches:
         cleaned = match.rstrip(".,;:!?)]}\"'")
         if cleaned not in urls:
             urls.append(cleaned)
     return urls
+
+
+def is_instagram_url(url: str) -> bool:
+    return INSTAGRAM_URL_RE.match(url) is not None
+
+
+def output_template(url: str | None = None) -> str:
+    # Instagram titles are "Video by <user>", so add the ID to keep them unique.
+    if url and is_instagram_url(url):
+        return "%(title)s [%(id)s].%(ext)s"
+    return "%(title)s.%(ext)s"
 
 
 def build_sort_value(settings: DownloadSettings) -> str:
@@ -72,6 +96,7 @@ def build_sort_value(settings: DownloadSettings) -> str:
 def build_ydl_options(
     settings: DownloadSettings,
     *,
+    url: str | None = None,
     logger: Any = None,
     progress_hook: Callable[[dict[str, Any]], None] | None = None,
     postprocessor_hook: Callable[[dict[str, Any]], None] | None = None,
@@ -79,7 +104,7 @@ def build_ydl_options(
     """Translate app settings into the public YoutubeDL option dictionary."""
     options: dict[str, Any] = {
         "format_sort": [part.strip() for part in build_sort_value(settings).split(",") if part.strip()],
-        "outtmpl": str(settings.output_dir / "%(title)s.%(ext)s"),
+        "outtmpl": str(settings.output_dir / output_template(url)),
         "paths": {"home": str(settings.output_dir)},
         "quiet": True,
         "no_warnings": True,
@@ -98,6 +123,8 @@ def build_ydl_options(
         options["cookiesfrombrowser"] = (settings.browser,)
     if settings.archive_path:
         options["download_archive"] = str(settings.archive_path)
+    if settings.restrict_filenames:
+        options["restrictfilenames"] = True
     if logger is not None:
         options["logger"] = logger
     if progress_hook is not None:
@@ -158,6 +185,7 @@ def validate_runtime_paths(paths: RuntimePaths) -> list[str]:
 def build_download_options(
     settings: DownloadSettings,
     *,
+    url: str | None = None,
     logger: Any = None,
     progress_hook: Callable[[dict[str, Any]], None] | None = None,
     postprocessor_hook: Callable[[dict[str, Any]], None] | None = None,
@@ -166,6 +194,7 @@ def build_download_options(
 
     return build_ydl_options(
         settings,
+        url=url,
         logger=logger,
         progress_hook=progress_hook,
         postprocessor_hook=postprocessor_hook,
