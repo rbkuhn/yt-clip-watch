@@ -25,7 +25,13 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from .core import DownloadSettings, RESOLUTION_CHOICES, extract_urls, resolve_runtime_paths
+from .core import (
+    DownloadSettings,
+    RESOLUTION_CHOICES,
+    extract_urls,
+    is_batch_url,
+    resolve_runtime_paths,
+)
 from .downloader import DownloadJob, DownloadWorker
 
 APP_NAME = "yt-clip-watch"
@@ -237,6 +243,9 @@ class MainWindow(QMainWindow):
             QMessageBox.critical(self, "Invalid download settings", str(exc))
             return
         for url in urls:
+            if is_batch_url(url) and not self._confirm_batch(url):
+                self._add_log(f"Skipped playlist/channel: {url}")
+                continue
             status = self._worker.enqueue(DownloadJob(url, settings))
             if status == "new":
                 self._add_row(url, "Queued", "0%", "Waiting")
@@ -246,6 +255,16 @@ class MainWindow(QMainWindow):
                 self._add_log(f"Already downloaded this session: {url}")
             else:
                 self._add_log("Watching has stopped; URL was not queued.")
+
+    def _confirm_batch(self, url: str) -> bool:
+        choice = QMessageBox.question(
+            self,
+            "Download playlist or channel?",
+            f"This link can download many videos:\n\n{url}\n\nDownload all of them?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        return choice == QMessageBox.StandardButton.Yes
 
     def _add_row(self, url: str, status: str, progress: str, details: str) -> None:
         row = self.queue_table.rowCount()

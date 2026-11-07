@@ -10,6 +10,7 @@ from yt_clip_watch.core import (
     build_download_options,
     build_sort_value,
     extract_urls,
+    is_batch_url,
 )
 
 
@@ -72,6 +73,38 @@ class CoreTests(unittest.TestCase):
             self.assertEqual(options["js_runtimes"], {"deno": {"path": "/opt/deno"}})
             self.assertEqual(options["ffmpeg_location"], "/opt/ffmpeg")
             self.assertTrue(Path(directory, "state", "archive.txt").parent.is_dir())
+
+    def test_single_videos_are_not_batches(self) -> None:
+        for url in (
+            "https://youtu.be/abc123",
+            "https://youtu.be/abc123?list=PL123",
+            "https://www.youtube.com/watch?v=abc123",
+            "https://www.youtube.com/watch?v=abc123&list=PL123&index=2",
+            "https://m.youtube.com/watch?v=abc123",
+            "https://www.youtube.com/shorts/abc123",
+            "https://www.youtube.com/live/abc123",
+            "https://www.instagram.com/reel/DAbc",
+        ):
+            with self.subTest(url=url):
+                self.assertFalse(is_batch_url(url))
+
+    def test_playlists_and_channels_are_batches(self) -> None:
+        for url in (
+            "https://www.youtube.com/playlist?list=PL123",
+            "https://www.youtube.com/@somechannel",
+            "https://www.youtube.com/@somechannel/videos",
+            "https://www.youtube.com/channel/UC123",
+            "https://www.youtube.com/c/SomeName",
+            "https://www.youtube.com/user/someone",
+            "https://www.youtube.com/watch?list=PL123",
+        ):
+            with self.subTest(url=url):
+                self.assertTrue(is_batch_url(url))
+
+    def test_playlist_params_on_video_links_are_ignored(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            settings = DownloadSettings(output_dir=Path(directory))
+            self.assertTrue(build_download_options(settings)["noplaylist"])
 
     def test_restrict_filenames_option(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

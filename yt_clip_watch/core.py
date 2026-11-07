@@ -9,6 +9,7 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
+from urllib.parse import parse_qs, urlsplit
 
 YOUTUBE_URL_RE = re.compile(
     r"https?://(?:[\w-]+\.)?(?:youtube\.com|youtu\.be)/[^\s<>'\"()]+",
@@ -21,6 +22,7 @@ INSTAGRAM_URL_RE = re.compile(
     re.IGNORECASE,
 )
 URL_PATTERNS = (YOUTUBE_URL_RE, INSTAGRAM_URL_RE)
+YOUTUBE_VIDEO_PATH_RE = re.compile(r"/(?:shorts|live|embed|v)/[\w-]+/?")
 RESOLUTION_CHOICES = (360, 480, 720, 1080)
 DEFAULT_SORT_TEMPLATE = "res:{resolution},ext:mp4:m4a"
 
@@ -80,6 +82,23 @@ def is_instagram_url(url: str) -> bool:
     return INSTAGRAM_URL_RE.match(url) is not None
 
 
+def is_batch_url(url: str) -> bool:
+    """True for YouTube links that can expand to many videos (playlists, channels).
+
+    Anything that is not a recognised single-video link counts as a batch, so
+    unknown YouTube pages ask before downloading rather than after.
+    """
+
+    if not YOUTUBE_URL_RE.match(url):
+        return False
+    parts = urlsplit(url)
+    if (parts.hostname or "").endswith("youtu.be"):
+        return False
+    if parts.path.rstrip("/") == "/watch" and parse_qs(parts.query).get("v"):
+        return False
+    return YOUTUBE_VIDEO_PATH_RE.fullmatch(parts.path) is None
+
+
 def output_template(url: str | None = None) -> str:
     # Instagram titles are "Video by <user>", so add the ID to keep them unique.
     if url and is_instagram_url(url):
@@ -109,6 +128,9 @@ def build_ydl_options(
         "quiet": True,
         "no_warnings": True,
         "noprogress": True,
+        # watch?v=X&list=Y downloads only X; pure playlist/channel URLs still
+        # expand, which is why the GUI confirms them first (see is_batch_url).
+        "noplaylist": True,
         "js_runtimes": {
             settings.runtime_paths.js_runtime_name: (
                 {"path": str(settings.runtime_paths.js_runtime)}
