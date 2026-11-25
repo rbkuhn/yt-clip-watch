@@ -28,16 +28,24 @@ If FUSE is unavailable on the host, extract and run the AppImage instead:
 ./squashfs-root/AppRun
 ```
 
+The AppImage uses its bundled yt-dlp. To update it, download a newer AppImage release or rebuild it with an updated dependency pin; upgrading a system copy of yt-dlp has no effect.
+
 The AppImage is not a sandbox and does not package browser logins. Use browser cookies only when necessary; exported or readable cookies can contain credentials and may trigger account enforcement by YouTube.
 
 ## Source development
 
-Python 3.10 or newer is required. Install the runtime dependencies in a virtual environment:
+Python 3.11 or newer is required. Use a Python 3.11+ interpreter to create the virtual environment and install the runtime dependencies:
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install -r requirements.txt
+```
+
+Before launching the app, update yt-dlp to the latest stable release in the project's virtual environment. The app imports yt-dlp from that environment; updating a system-wide `yt-dlp` command does not update the app. Reinstalling from `requirements.txt` restores the pinned version, so run this after installing the requirements:
+
+```bash
+.venv/bin/python -m pip install --upgrade 'yt-dlp[default]'
 ```
 
 Source runs use Deno when it is available, otherwise Node 22 or newer. FFmpeg and FFprobe are required for merging separate video and audio streams. The AppImage build bundles these tools explicitly.
